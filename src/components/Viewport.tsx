@@ -3,6 +3,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FastForward,
+  FolderOpen,
   Pause,
   Play,
   Rewind,
@@ -15,6 +16,7 @@ import { formatTimecode, secondsToFrames } from '../engine/timecode';
 
 interface ViewportProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  hasMedia: boolean;
   playhead: number;
   duration: number;
   fps: number;
@@ -34,11 +36,13 @@ interface ViewportProps {
   onSeekEnd: () => void;
   onMarkIn: () => void;
   onMarkOut: () => void;
+  onImportClick: () => void;
   onDropFiles: (files: FileList) => void;
 }
 
 export const Viewport: React.FC<ViewportProps> = ({
   canvasRef,
+  hasMedia,
   playhead,
   duration,
   fps,
@@ -58,6 +62,7 @@ export const Viewport: React.FC<ViewportProps> = ({
   onSeekEnd,
   onMarkIn,
   onMarkOut,
+  onImportClick,
   onDropFiles,
 }) => {
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -107,7 +112,10 @@ export const Viewport: React.FC<ViewportProps> = ({
         <div
           className="canvas-frame"
           ref={frameRef}
-          style={{ transform: viewZoom === 1 ? undefined : `scale(${viewZoom})` }}
+          style={{
+            transform: viewZoom === 1 ? undefined : `scale(${viewZoom})`,
+            display: hasMedia ? 'flex' : 'none',
+          }}
         >
           <canvas
             ref={canvasRef}
@@ -145,6 +153,30 @@ export const Viewport: React.FC<ViewportProps> = ({
             />
           )}
         </div>
+
+        {!hasMedia && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 14,
+              textAlign: 'center',
+              maxWidth: 360,
+            }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>
+              Drop video or music files here
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--mute)' }}>
+              MP4, MOV, WebM, MKV, WAV, FLAC, or MP3
+            </div>
+            <button type="button" className="primary" onClick={onImportClick}>
+              <FolderOpen size={14} />
+              Import Media
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="transport-bar">

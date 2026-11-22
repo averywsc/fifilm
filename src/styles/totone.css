@@ -220,9 +220,12 @@ input[type='checkbox'] {
 .app-shell {
   display: grid;
   grid-template-rows: 48px 1fr 296px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
   height: 100vh;
   width: 100vw;
+  max-width: 100vw;
+  overflow: hidden;
   background: var(--bg-deep);
 }
 
@@ -230,10 +233,13 @@ input[type='checkbox'] {
 .topbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 16px;
+  gap: 6px;
+  padding: 0 12px;
   background: var(--surface-1);
   min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .wordmark {
@@ -278,9 +284,11 @@ input[type='checkbox'] {
 /* Main Workspace */
 .workspace-main {
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: minmax(0, 1fr) clamp(310px, 28vw, 376px);
   gap: 2px;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   background: var(--bg-deep);
 }
 
@@ -399,10 +407,13 @@ input[type='checkbox'] {
 .transport-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   height: 44px;
-  padding: 0 16px;
+  padding: 0 12px;
   background: var(--surface-1);
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .timecode-readout {
@@ -433,6 +444,8 @@ input[type='checkbox'] {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   background: var(--surface-1);
 }
 

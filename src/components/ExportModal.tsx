@@ -19,6 +19,7 @@ interface ExportModalProps {
   assets: Map<string, MediaAsset>;
   masterVolume: number;
   masterMuted: boolean;
+  ensureAssetDiskPath: (assetId: string) => Promise<string | undefined>;
   capabilities: HardwareCapabilities | null;
   inPoint: number | null;
   outPoint: number | null;
@@ -110,6 +111,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   assets,
   masterVolume,
   masterMuted,
+  ensureAssetDiskPath,
   capabilities,
   inPoint,
   outPoint,
@@ -175,15 +177,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       setStatus('Select a clip on the timeline first.');
       return;
     }
-    if (!asset.filePath) {
-      setStatus(
-        'This clip is a procedural sample without a local file path. Import a local video file in Electron mode for hardware FFmpeg render, or export the baked .cube LUT below.'
-      );
-      return;
-    }
     setBusy(true);
-    setStatus('Baking color grade and multi-LUT stack to tetrahedral .cube and encoding via FFmpeg...');
+    setStatus('Preparing source media and baking tetrahedral .cube grade...');
     try {
+      const inputPath = asset.filePath || (await ensureAssetDiskPath(asset.id));
+      if (!inputPath) {
+        setStatus('Could not resolve local file path for export.');
+        setBusy(false);
+        return;
+      }
       const bakedCube = bakeGradeToCube(clip.name, clip.color, getCachedLutMap(), 33);
       const startSec =
         useMarkedRange && inPoint !== null
@@ -192,7 +194,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       const exportWindowStart = useMarkedRange && inPoint !== null ? inPoint : clip.start;
       const exportWindowEnd = exportWindowStart + durationSec;
 
-      // Gather active audio/music tracks overlapping the export range (respecting mute/solo)
       const trackMap = new Map(tracks.map((t) => [t.id, t]));
       const anySolo = tracks.some((t) => t.kind === 'audio' && t.solo);
       const audioTracks: ExportAudioClipSpec[] = [];
@@ -204,13 +205,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           if (!tr || tr.muted) continue;
           if (tr.kind === 'audio' && anySolo && !tr.solo) continue;
           const a = assets.get(c.assetId);
-          if (!a?.filePath || !a.hasAudio) continue;
+          if (!a || !a.hasAudio) continue;
+          const aPath = a.filePath || (await ensureAssetDiskPath(a.id));
+          if (!aPath) continue;
           const overlapStart = Math.max(exportWindowStart, c.start);
           const overlapEnd = Math.min(exportWindowEnd, c.start + c.duration);
           if (overlapEnd <= overlapStart + 0.02) continue;
 
           audioTracks.push({
-            filePath: a.filePath,
+            filePath: aPath,
             timelineStart: Math.max(0, overlapStart - exportWindowStart),
             sourceIn: c.sourceIn + Math.max(0, overlapStart - c.start),
             duration: overlapEnd - overlapStart,
@@ -221,8 +224,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         }
       }
 
+      setStatus('Encoding via FFmpeg...');
       const res = await runBackendExport({
-        inputPath: asset.filePath,
+        inputPath,
         outputPath,
         codec,
         qualityMode,

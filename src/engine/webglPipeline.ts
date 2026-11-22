@@ -533,6 +533,13 @@ export class WebGL2ColorPipeline {
     this.lutTextures.set(lut.id, { tex, lut });
   }
 
+  public clear(r = 0.02, g = 0.031, b = 0.067): void {
+    const gl = this.gl;
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.clearColor(r, g, b, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+
   public renderFrame(params: {
     source: TexImageSource;
     stabilizedSource?: TexImageSource | null;
@@ -548,12 +555,24 @@ export class WebGL2ColorPipeline {
   }): void {
     const gl = this.gl;
     const canvas = gl.canvas as HTMLCanvasElement;
-    if (canvas.width !== params.width || canvas.height !== params.height) {
-      canvas.width = params.width;
-      canvas.height = params.height;
+
+    // Cap live preview render resolution at 1920px max dimension (preserving exact aspect ratio)
+    // so 4K/8K and vertical 9:16 footage stay buttery 60fps in real-time shaders
+    const MAX_PREVIEW_DIM = 1920;
+    let targetW = Math.max(2, Math.round(params.width));
+    let targetH = Math.max(2, Math.round(params.height));
+    if (targetW > MAX_PREVIEW_DIM || targetH > MAX_PREVIEW_DIM) {
+      const scale = MAX_PREVIEW_DIM / Math.max(targetW, targetH);
+      targetW = Math.max(2, Math.round(targetW * scale));
+      targetH = Math.max(2, Math.round(targetH * scale));
     }
 
-    gl.viewport(0, 0, params.width, params.height);
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+
+    gl.viewport(0, 0, targetW, targetH);
     gl.useProgram(this.program);
     gl.bindVertexArray(this.vao);
 
@@ -570,7 +589,7 @@ export class WebGL2ColorPipeline {
     }
     gl.uniform1i(this.uniforms.uVideoStab, 7);
     gl.uniform1i(this.uniforms.uHasStabVideo, hasStabVideo ? 1 : 0);
-    gl.uniform2f(this.uniforms.uTexelSize, 1 / Math.max(1, params.width), 1 / Math.max(1, params.height));
+    gl.uniform2f(this.uniforms.uTexelSize, 1 / Math.max(1, targetW), 1 / Math.max(1, targetH));
 
     const activeLayers = params.grade.lutStack
       .filter((l) => l.enabled && l.intensity > 0 && this.lutTextures.has(l.lutId))

@@ -6,10 +6,19 @@ interface ActiveVoice {
   gain: GainNode;
 }
 
+interface AttachedVideoAudio {
+  element: HTMLVideoElement;
+  source: MediaElementAudioSourceNode;
+  gain: GainNode;
+}
+
 /**
- * Sample-accurate Web Audio NLE mixer with per-clip gain, fade-in/fade-out envelopes,
- * track mute/solo routing, master fader, anti-pop ramps, brickwall limiter,
- * and live stereo Peak dBFS / momentary LUFS metering.
+ * Sample-accurate Web Audio NLE mixer supporting:
+ * 1. Zero-copy hardware-synced <video> audio routing via MediaElementAudioSourceNode
+ *    (eliminates RAM bloat and A/V drift on large 4K/MP4/MOV files)
+ * 2. Sample-accurate AudioBuffer scheduling for standalone music/audio tracks (WAV/FLAC/MP3)
+ * 3. Per-clip volume, fade-in/fade-out envelopes, track mute/solo, master fader,
+ *    brickwall peak limiter, and real-time stereo Peak dBFS + momentary LUFS metering.
  */
 export class FifilmAudioEngine {
   private ctx: AudioContext | null = null;
@@ -18,6 +27,7 @@ export class FifilmAudioEngine {
   private analyserL: AnalyserNode | null = null;
   private analyserR: AnalyserNode | null = null;
   private buffers = new Map<string, AudioBuffer>();
+  private videoNodes = new Map<string, AttachedVideoAudio>();
   private activeVoices: ActiveVoice[] = [];
   private masterVolume = 1.0;
   private masterMuted = false;
@@ -25,7 +35,7 @@ export class FifilmAudioEngine {
   private meterBufR = new Float32Array(1024);
   private lufsEma = -60;
 
-  private ensureContext(): AudioContext | null {
+  public ensureContext(): AudioContext | null {
     if (this.ctx) return this.ctx;
     const AudioCtx =
       window.AudioContext ||
@@ -36,7 +46,6 @@ export class FifilmAudioEngine {
     const masterGain = ctx.createGain();
     masterGain.gain.value = this.masterMuted ? 0 : this.masterVolume;
 
-    // Gentle broadcast true-peak brickwall limiter to prevent digital clipping
     const limiter = ctx.createDynamicsCompressor();
     limiter.threshold.value = -1.0;
     limiter.knee.value = 3.0;
@@ -64,6 +73,55 @@ export class FifilmAudioEngine {
     return ctx;
   }
 
+  public resume(): void {
+    const ctx = this.ensureContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+  }
+
+  /**
+   * Routes a <video> element's native audio stream through our Master Bus
+   * without decoding the entire MP4/MOV file into RAM.
+   */
+  public attachVideoElement(assetId: string, video: HTMLVideoElement): void {
+    if (this.videoNodes.has(assetId)) return;
+    const ctx = this.ensureContext();
+    if (!ctx || !this.masterGain) return;
+    try {
+      const source = ctx.createMediaElementSource(video);
+      const gain = ctx.createGain();
+      gain.gain.value = 1.0;
+      source.connect(gain);
+      gain.connect(this.masterGain);
+      this.videoNodes.set(assetId, { element: video, source, gain });
+    } catch {
+      // Fallback: video plays natively if already attached
+    }
+  }
+
+  public detachVideoElement(assetId: string): void {
+    const node = this.videoNodes.get(assetId);
+    if (!node) return;
+    try {
+      node.source.disconnect();
+      node.gain.disconnect();
+    } catch {
+      // ignore
+    }
+    this.videoNodes.delete(assetId);
+  }
+
+  /**
+   * Updates live gain (including fade-in/fade-out envelope and mute/solo) for an active <video> clip.
+   */
+  public setVideoClipEnvelopeGain(assetId: string, linearGain: number): void {
+    const node = this.videoNodes.get(assetId);
+    if (!node || !this.ctx) return;
+    const clamped = Math.max(0, Math.min(2.0, linearGain));
+    node.gain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.015);
+  }
+
   public async decodeAndStore(assetId: string, blob: Blob): Promise<AudioBuffer | null> {
     const ctx = this.ensureContext();
     if (!ctx) return null;
@@ -81,14 +139,6 @@ export class FifilmAudioEngine {
     return this.buffers.has(assetId);
   }
 
-  public getBuffer(assetId: string): AudioBuffer | undefined {
-    return this.buffers.get(assetId);
-  }
-
-  /**
-   * Computes peak dBFS and recommended linear volume gain to normalize a clip
-   * cleanly to targetPeakDb (default -1.0 dBFS).
-   */
   public computeNormalizeVolume(assetId: string, targetPeakDb = -1.0): number | null {
     const buf = this.buffers.get(assetId);
     if (!buf) return null;
@@ -106,69 +156,6 @@ export class FifilmAudioEngine {
     return Math.max(0.1, Math.min(2.0, Number(gain.toFixed(2))));
   }
 
-  /**
-   * Synthesizes a clean, warm 124 BPM ambient demo AudioBuffer for the starter
-   * music clip so sample-accurate audio playback, beat sync, fades, mute/solo,
-   * and live peak/LUFS meters work immediately out of the box.
-   */
-  public ensureSampleMusicBuffer(assetId: string, durationSec = 24, bpm = 124): void {
-    if (this.buffers.has(assetId)) return;
-    const ctx = this.ensureContext();
-    if (!ctx) return;
-
-    const sr = ctx.sampleRate;
-    const length = Math.floor(sr * durationSec);
-    const buf = ctx.createBuffer(2, length, sr);
-    const left = buf.getChannelData(0);
-    const right = buf.getChannelData(1);
-
-    const period = 60 / bpm;
-    // Deep mellow chord progression (Am9 -> Fmaj7 -> Dm9 -> Em7)
-    const chords = [
-      [110.0, 164.81, 220.0, 261.63, 329.63],
-      [87.31, 130.81, 174.61, 220.0, 261.63],
-      [73.42, 110.0, 146.83, 174.61, 220.0],
-      [82.41, 123.47, 164.81, 196.0, 246.94],
-    ];
-
-    for (let i = 0; i < length; i++) {
-      const t = i / sr;
-      const beatPos = t / period;
-      const beatFrac = beatPos - Math.floor(beatPos);
-      const beatIdx = Math.floor(beatPos);
-      const barIdx = Math.floor(beatIdx / 4);
-      const chord = chords[barIdx % chords.length];
-
-      // Subtle warm kick on every beat, slightly stronger on downbeats
-      const kickEnv = Math.exp(-beatFrac * 16.0);
-      const kickFreq = 48 + 75 * Math.exp(-beatFrac * 38.0);
-      const kick = Math.sin(2 * Math.PI * kickFreq * (beatFrac * period)) * kickEnv * (beatIdx % 4 === 0 ? 0.36 : 0.25);
-
-      // Soft percussive off-beat click/hat for crisp transient timing
-      const halfFrac = (beatPos * 2) % 1;
-      const hatEnv = Math.exp(-halfFrac * 42.0);
-      const noise = Math.sin(i * 12.9898) * Math.cos(i * 78.233);
-      const hat = beatIdx % 2 === 1 ? noise * hatEnv * 0.055 : 0;
-
-      // Sidechained warm pad swell
-      const sidechain = Math.min(1, beatFrac * 3.5);
-      let padL = 0;
-      let padR = 0;
-      for (let c = 0; c < chord.length; c++) {
-        const f = chord[c];
-        const phase = 2 * Math.PI * f * t;
-        padL += Math.sin(phase + c * 0.3) * 0.038;
-        padR += Math.sin(phase * 1.0018 - c * 0.2) * 0.038;
-      }
-
-      const envEdge = Math.min(1, t * 4, Math.max(0, (durationSec - t) * 4));
-      left[i] = Math.tanh((kick + hat + padL * sidechain) * envEdge);
-      right[i] = Math.tanh((kick + hat * 0.85 + padR * sidechain) * envEdge);
-    }
-
-    this.buffers.set(assetId, buf);
-  }
-
   public setMasterVolume(vol: number, muted: boolean): void {
     this.masterVolume = Math.max(0, Math.min(2, vol));
     this.masterMuted = muted;
@@ -178,7 +165,7 @@ export class FifilmAudioEngine {
     }
   }
 
-  public stop(): void {
+  public stopBufferVoices(): void {
     const ctx = this.ctx;
     for (const v of this.activeVoices) {
       try {
@@ -199,16 +186,16 @@ export class FifilmAudioEngine {
   }
 
   /**
-   * Starts sample-accurate playback of all audible clips from `playheadSec`
-   * at playback rate `rate` (only forward rates > 0 emit audio).
+   * Starts sample-accurate playback of standalone audio/music tracks (AudioBuffers)
+   * from playheadSec. Video clip audio is handled directly by attached <video> nodes.
    */
-  public startPlayback(params: {
+  public startAudioTrackPlayback(params: {
     playheadSec: number;
     rate: number;
     clips: TimelineClip[];
     tracks: TimelineTrack[];
   }): void {
-    this.stop();
+    this.stopBufferVoices();
     if (params.rate <= 0) return;
 
     const ctx = this.ensureContext();
@@ -219,13 +206,15 @@ export class FifilmAudioEngine {
 
     const anySolo = params.tracks.some((t) => t.kind === 'audio' && t.solo);
     const trackMap = new Map(params.tracks.map((t) => [t.id, t]));
-    const now = ctx.currentTime + 0.01; // 10ms lookahead for exact cross-track sync
+    const now = ctx.currentTime + 0.01;
 
     for (const clip of params.clips) {
       if (clip.muted || clip.volume <= 0.001) continue;
+      // Skip video assets that are already playing via attached <video> MediaElementAudioSourceNode
+      if (this.videoNodes.has(clip.assetId)) continue;
+
       const track = trackMap.get(clip.trackId);
-      if (!track) continue;
-      if (track.muted) continue;
+      if (!track || track.muted) continue;
       if (track.kind === 'audio' && anySolo && !track.solo) continue;
 
       const buf = this.buffers.get(clip.assetId);
@@ -238,7 +227,8 @@ export class FifilmAudioEngine {
       const delayTimeline = Math.max(0, clip.start - params.playheadSec);
       const startWhen = now + delayTimeline / params.rate;
       const elapsedInClip = Math.max(0, params.playheadSec - clip.start);
-      const sourceOffset = clip.sourceIn + elapsedInClip * (clip.color.effects.enabled ? clip.color.effects.speed : 1);
+      const sourceOffset =
+        clip.sourceIn + elapsedInClip * (clip.color.effects.enabled ? clip.color.effects.speed : 1);
       if (sourceOffset >= buf.duration) continue;
 
       const remainingTimeline = clipEnd - Math.max(params.playheadSec, clip.start);
@@ -252,7 +242,6 @@ export class FifilmAudioEngine {
       const gain = ctx.createGain();
       const targetGain = Math.max(0, Math.min(2.0, clip.volume));
 
-      // Schedule sample-accurate anti-pop ramp + fade-in + fade-out envelopes
       const fadeIn = Math.max(0.005, Math.min(clip.fadeIn, clip.duration * 0.5));
       const fadeOut = Math.max(0.005, Math.min(clip.fadeOut, clip.duration * 0.5));
 
@@ -278,7 +267,11 @@ export class FifilmAudioEngine {
       src.connect(gain);
       gain.connect(this.masterGain);
       try {
-        src.start(startWhen, sourceOffset, Math.min(buf.duration - sourceOffset, remainingTimeline * speedMul + 0.05));
+        src.start(
+          startWhen,
+          sourceOffset,
+          Math.min(buf.duration - sourceOffset, remainingTimeline * speedMul + 0.05)
+        );
         this.activeVoices.push({ clipId: clip.id, source: src, gain });
       } catch {
         // ignore invalid start offset
@@ -286,7 +279,6 @@ export class FifilmAudioEngine {
     }
   }
 
-  /** Live volume update for currently playing voices without restarting playback */
   public updateClipVolumeLive(clipId: string, volume: number, muted: boolean): void {
     if (!this.ctx) return;
     const target = muted ? 0 : Math.max(0, Math.min(2, volume));
@@ -325,11 +317,11 @@ export class FifilmAudioEngine {
       sumSq += 0.5 * (l * l + r * r);
     }
 
-    const toDb = (lin: number) => (lin <= 1e-5 ? -60 : Math.max(-60, Math.min(0, 20 * Math.log10(lin))));
+    const toDb = (lin: number) =>
+      lin <= 1e-5 ? -60 : Math.max(-60, Math.min(0, 20 * Math.log10(lin)));
     const peakLeftDb = Number(toDb(peakL).toFixed(1));
     const peakRightDb = Number(toDb(peakR).toFixed(1));
     const rmsDb = toDb(Math.sqrt(sumSq / n));
-    // Momentary LUFS approximation (~RMS - 0.691 dB K-weighting offset)
     const instLufs = Math.max(-60, rmsDb - 0.7);
     this.lufsEma = this.lufsEma * 0.72 + instLufs * 0.28;
 
@@ -342,7 +334,10 @@ export class FifilmAudioEngine {
   }
 
   public dispose(): void {
-    this.stop();
+    this.stopBufferVoices();
+    for (const id of Array.from(this.videoNodes.keys())) {
+      this.detachVideoElement(id);
+    }
     if (this.ctx) {
       this.ctx.close().catch(() => {});
       this.ctx = null;

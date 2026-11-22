@@ -5,6 +5,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import {
   analyzeBeatsOnDisk,
+  extractFfmpegWaveform,
   probeHardwareCapabilities,
   readLutFilePayload,
   runHardwareExport,
@@ -176,6 +177,11 @@ function fifilmDevApiPlugin(): Plugin {
             const body = await readJsonBody(req);
             const result = await analyzeBeatsOnDisk(String(body.inputPath || ''));
             return sendJson(200, result);
+          }
+          if (url.pathname === '/api/fifilm/waveform' && req.method === 'POST') {
+            const body = await readJsonBody(req);
+            const peaks = await extractFfmpegWaveform(String(body.inputPath || ''), 180);
+            return sendJson(200, { peaks });
           }
           if (url.pathname === '/api/fifilm/stage-media' && req.method === 'POST') {
             const fileName = url.searchParams.get('name') || 'clip.mp4';

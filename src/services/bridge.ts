@@ -216,6 +216,18 @@ export async function runBackendBeatAnalysis(inputPath: string): Promise<BeatAna
   return res.json();
 }
 
+export async function extractBackendWaveform(inputPath: string): Promise<number[]> {
+  if (window.fifilm) return window.fifilm.extractWaveform(inputPath);
+  const res = await fetch('/api/fifilm/waveform', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inputPath }),
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data.peaks) ? data.peaks : [];
+}
+
 export async function runBackendExport(req: ExportRequest) {
   if (window.fifilm) return window.fifilm.exportVideo(req);
   const res = await fetch('/api/fifilm/export', {
