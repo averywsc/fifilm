@@ -14,14 +14,15 @@
     "electron:dev": "npm run compile:electron && concurrently -k \"vite\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "electron:start": "npm run build:electron && electron .",
     "icon:generate": "python scripts/generate_icon.py",
-    "dist:win": "npm run icon:generate && npm run build:electron && electron-builder --win",
-    "dist:win:portable": "npm run icon:generate && npm run build:electron && electron-builder --win portable",
+    "dist:win": "npm run icon:generate && npm run build:electron && electron-builder --win --publish never",
+    "dist:win:portable": "npm run icon:generate && npm run build:electron && electron-builder --win portable --publish never",
     "luts:generate": "python scripts/generate_luts.py",
     "preview": "vite preview"
   },
   "build": {
     "appId": "app.fifilm.nle",
     "productName": "Fifilm",
+    "publish": null,
     "directories": {
       "output": "release",
       "buildResources": "build"
