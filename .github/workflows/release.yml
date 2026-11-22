@@ -29,34 +29,40 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Read release version
+      - name: Read release version and signing mode
         id: meta
         shell: pwsh
+        env:
+          AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
         run: |
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
           $tag = if ("${{ github.ref }}".StartsWith("refs/tags/")) { "${{ github.ref_name }}" } else { "v$($pkg.version)" }
+          $hasAzure = if ($env:AZURE_SIGNING_ENDPOINT -and $env:AZURE_CLIENT_ID) { "true" } else { "false" }
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Release tag: $tag"
+          "has_azure=$hasAzure" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Release tag: $tag | Azure Trusted Signing enabled: $hasAzure"
 
-      - name: Build Windows Installer and Portable .exe (Signed if WIN_CSC_LINK secret is set)
+      - name: Build Windows Installer and Portable .exe
         shell: pwsh
         env:
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.WIN_CSC_LINK != '' && 'true' || 'false' }}
         run: |
           if ($env:WIN_CSC_LINK) {
             Write-Host "Code signing certificate detected — building signed Windows executables..."
+            $env:CSC_IDENTITY_AUTO_DISCOVERY = "true"
             npm run icon:generate
             npm run build:electron
             npx electron-builder --win --publish never --config.win.signAndEditExecutable=true
           } else {
             Write-Host "No WIN_CSC_LINK secret set — building unsigned executables (see docs/SIGNING.md to enable trusted signing)."
+            $env:CSC_IDENTITY_AUTO_DISCOVERY = "false"
             npm run dist:win
           }
 
-      - name: Sign with Microsoft Azure Trusted Signing (if Azure secrets are set)
-        if: ${{ secrets.AZURE_SIGNING_ENDPOINT != '' && secrets.AZURE_CLIENT_ID != '' }}
+      - name: Sign with Microsoft Azure Trusted Signing
+        if: steps.meta.outputs.has_azure == 'true'
         uses: azure/trusted-signing-action@v0.5.7
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
