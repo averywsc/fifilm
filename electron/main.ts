@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import {
   analyzeBeatsOnDisk,
@@ -87,6 +87,11 @@ app.whenReady().then(() => {
       ],
     });
     return res.canceled ? null : res.filePath;
+  });
+
+  ipcMain.handle('fifilm:reveal-path', (_e, filePath: string) => {
+    if (filePath) shell.showItemInFolder(filePath);
+    return true;
   });
 
   createWindow();

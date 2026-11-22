@@ -31,4 +31,6 @@ contextBridge.exposeInMainWorld('fifilm', {
   pickVideoFiles: () => ipcRenderer.invoke('fifilm:pick-video'),
   pickExportPath: (defaultName: string) =>
     ipcRenderer.invoke('fifilm:pick-export-path', defaultName),
+  revealInExplorer: (filePath: string) =>
+    ipcRenderer.invoke('fifilm:reveal-path', filePath),
 });

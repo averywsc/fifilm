@@ -241,3 +241,12 @@ export async function runBackendExport(req: ExportRequest) {
   }
   return res.json();
 }
+
+export async function revealPathInExplorer(filePath?: string): Promise<boolean> {
+  if (!filePath) return false;
+  const api = window.fifilm as (typeof window.fifilm & { revealInExplorer?: (p: string) => Promise<boolean> }) | undefined;
+  if (api?.revealInExplorer) {
+    return api.revealInExplorer(filePath);
+  }
+  return false;
+}
