@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "High-performance hardware-accelerated open-source non-linear video editor (video companion to Totone)",
   "author": "Avery",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "main": "dist-electron/main.cjs",

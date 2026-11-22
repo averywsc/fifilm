@@ -38,10 +38,38 @@ jobs:
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "Release tag: $tag"
 
-      - name: Build Windows Installer and Portable .exe
+      - name: Build Windows Installer and Portable .exe (Signed if WIN_CSC_LINK secret is set)
+        shell: pwsh
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npm run dist:win
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.WIN_CSC_LINK != '' && 'true' || 'false' }}
+        run: |
+          if ($env:WIN_CSC_LINK) {
+            Write-Host "Code signing certificate detected — building signed Windows executables..."
+            npm run icon:generate
+            npm run build:electron
+            npx electron-builder --win --publish never --config.win.signAndEditExecutable=true
+          } else {
+            Write-Host "No WIN_CSC_LINK secret set — building unsigned executables (see docs/SIGNING.md to enable trusted signing)."
+            npm run dist:win
+          }
+
+      - name: Sign with Microsoft Azure Trusted Signing (if Azure secrets are set)
+        if: ${{ secrets.AZURE_SIGNING_ENDPOINT != '' && secrets.AZURE_CLIENT_ID != '' }}
+        uses: azure/trusted-signing-action@v0.5.7
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_SIGNING_PROFILE }}
+          files-folder: release
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
