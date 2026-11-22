@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fifilm</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #080c18;
+        --panel: #0e1528;
+        --panel-hover: #15203b;
+        --ink: #f4f7ff;
+        --mute: #8d9cc4;
+        --dim: #5e7099;
+        --acc: #ffffff;
+        --acc-ink: #080c18;
+        --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font-ui);
+        font-size: 15px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .wrap {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 56px 24px 80px;
+      }
+
+      header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 56px;
+      }
+
+      .wordmark {
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        color: var(--acc);
+      }
+
+      nav {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        font-size: 13px;
+        color: var(--mute);
+      }
+
+      nav a:hover {
+        color: var(--acc);
+      }
+
+      h1 {
+        margin: 0 0 18px;
+        font-size: clamp(32px, 5vw, 44px);
+        font-weight: 700;
+        letter-spacing: -0.035em;
+        line-height: 1.1;
+        color: var(--acc);
+      }
+
+      .lead {
+        margin: 0 0 36px;
+        font-size: 16px;
+        color: var(--mute);
+        max-width: 60ch;
+      }
+
+      .downloads {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      @media (max-width: 600px) {
+        .downloads {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .dl-block {
+        min-width: 0;
+        background: var(--panel);
+        border-radius: 8px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .dl-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .dl-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--acc);
+      }
+
+      .dl-size {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--mute);
+      }
+
+      .dl-desc {
+        margin: 0;
+        font-size: 13px;
+        color: var(--mute);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--font-ui);
+        font-size: 13px;
+        font-weight: 600;
+        padding: 11px 16px;
+        border-radius: 6px;
+        background: var(--panel-hover);
+        color: var(--ink);
+        border: none;
+        cursor: pointer;
+        transition: background-color 0.14s ease;
+      }
+
+      .btn:hover {
+        background: #1d2c4f;
+      }
+
+      .btn.primary {
+        background: var(--acc);
+        color: var(--acc-ink);
+      }
+
+      .btn.primary:hover {
+        background: #e5ebf8;
+      }
+
+      .hash-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--dim);
+      }
+
+      .hash-val {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .copy-btn {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--mute);
+        background: transparent;
+        border: none;
+        padding: 2px 6px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .copy-btn:hover {
+        color: var(--acc);
+        background: var(--panel-hover);
+      }
+
+      .meta {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--dim);
+        margin: 0 0 44px;
+      }
+
+      .details {
+        display: grid;
+        gap: 24px;
+      }
+
+      .details h2 {
+        margin: 0 0 8px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--acc);
+      }
+
+      .details p {
+        margin: 0;
+        font-size: 14px;
+        color: var(--mute);
+      }
+
+      .feature-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 8px;
+        font-size: 14px;
+        color: var(--mute);
+      }
+
+      .feature-list strong {
+        color: var(--ink);
+        font-weight: 500;
+      }
+
+      footer {
+        margin-top: 56px;
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--dim);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <a class="wordmark" href="./">Fifilm</a>
+        <nav>
+          <a id="web-preview-link" href="/" style="display: none">Web preview</a>
+          <a href="https://github.com/averywsc/fifilm/releases" target="_blank" rel="noreferrer">Releases</a>
+          <a href="https://github.com/averywsc/fifilm" target="_blank" rel="noreferrer">Source</a>
+        </nav>
+      </header>
+
+      <main>
+        <h1>Download Fifilm</h1>
+        <p class="lead">
+          A hardware-accelerated desktop video editor for cinematic colour grading, stacked 3D LUTs, and smooth two-pass stabilization, with real-time film halation, optical bloom, live RGB parade and waveform scopes, frame-accurate magnetic cutting, beat-synced audio mixing, and GPU-accelerated video export.
+        </p>
+
+        <section class="downloads">
+          <div class="dl-block">
+            <div class="dl-head">
+              <span class="dl-title">Windows Installer</span>
+              <span class="dl-size" id="setup-size">197.8 MB</span>
+            </div>
+            <p class="dl-desc">Standard Windows setup with Start Menu and desktop shortcuts.</p>
+            <a class="btn primary" id="installer-btn" href="https://github.com/averywsc/fifilm/releases/latest/download/Fifilm-Setup-0.1.0.exe" download>
+              Download Fifilm-Setup-0.1.0.exe
+            </a>
+            <div class="hash-row">
+              <span class="hash-val" id="setup-hash">SHA-256 AABAC4BE5BC7D78E3EEDFCC50845B76AB7880C6571CDD52154142680C73424BE</span>
+              <button type="button" class="copy-btn" data-copy="setup-hash">Copy</button>
+            </div>
+          </div>
+
+          <div class="dl-block">
+            <div class="dl-head">
+              <span class="dl-title">Portable</span>
+              <span class="dl-size" id="portable-size">173.0 MB</span>
+            </div>
+            <p class="dl-desc">Single standalone executable. Run from any folder without installing.</p>
+            <a class="btn" id="portable-btn" href="https://github.com/averywsc/fifilm/releases/latest/download/Fifilm-0.1.0-Portable.exe" download>
+              Download Fifilm-0.1.0-Portable.exe
+            </a>
+            <div class="hash-row">
+              <span class="hash-val" id="portable-hash">SHA-256 554D117F99D9224CCD4D8DEBFC979B8EF2E392C309CD6F5BC3B781B83562DA2E</span>
+              <button type="button" class="copy-btn" data-copy="portable-hash">Copy</button>
+            </div>
+          </div>
+        </section>
+
+        <p class="meta" id="meta-line">
+          v0.1.0 / Windows 10 and 11 (64-bit) / FFmpeg, FFprobe, and libvidstab bundled
+        </p>
+
+        <section class="details">
+          <div>
+            <h2>What is included</h2>
+            <ul class="feature-list">
+              <li><strong>Colour and LUTs:</strong> Primary correction, Lift/Gamma/Gain wheels, split toning, up to 6 stacked 3D .cube LUTs with tetrahedral interpolation, and automatic indexing of your colorstudies library.</li>
+              <li><strong>Effects and scopes:</strong> Real-time WebGL2 film halation, Pro-Mist highlight bloom, chromatic aberration, vignette, grain, letterbox mattes, and live RGB parade, waveform, and histogram scopes.</li>
+              <li><strong>Stabilization:</strong> Two-pass FFmpeg libvidstab with Smooth Motion and No Motion tripod lock modes, auto-crop zoom, rolling shutter handling, and Before/After split wipe preview.</li>
+              <li><strong>Timeline and audio:</strong> Frame-accurate cutting, magnetic snapping, View All Layers, 48 kHz Web Audio mixing with fade envelopes and LUFS metering, beat and transient sync, and hardware NVENC / QSV / AMF / ProRes export.</li>
+            </ul>
+          </div>
+
+          <div>
+            <h2>First launch on Windows</h2>
+            <p>
+              Because this is an independent open-source build without a commercial code-signing certificate, Windows SmartScreen may show a warning the first time you open it. Select More info, then Run anyway.
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <span id="footer-ver">Fifilm 0.1.0</span>
+        <span id="footer-status">Windows x64</span>
+      </footer>
+    </div>
+
+    <script>
+      (async function () {
+        const REPO = 'averywsc/fifilm';
+
+        document.querySelectorAll('[data-copy]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const el = document.getElementById(btn.getAttribute('data-copy'));
+            if (!el) return;
+            const raw = el.textContent.replace(/^SHA-256\s+/i, '').trim();
+            try {
+              await navigator.clipboard.writeText(raw);
+              btn.textContent = 'Copied';
+              setTimeout(() => (btn.textContent = 'Copy'), 1500);
+            } catch {
+              btn.textContent = 'Done';
+            }
+          });
+        });
+
+        const setLink = (id, href, text) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.href = href;
+          if (text) el.textContent = text;
+        };
+
+        const setText = (id, text) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = text;
+        };
+
+        const isLocal =
+          (location.hostname === 'localhost' || location.hostname === '127.0.0.1') &&
+          location.protocol !== 'file:';
+
+        if (isLocal) {
+          const preview = document.getElementById('web-preview-link');
+          if (preview) preview.style.display = 'inline';
+          try {
+            const res = await fetch('/api/fifilm/releases');
+            if (res.ok) {
+              const data = await res.json();
+              if (data.version) {
+                setText('footer-ver', 'Fifilm ' + data.version);
+                setText('meta-line', 'v' + data.version + ' / Windows 10 and 11 (64-bit) / FFmpeg, FFprobe, and libvidstab bundled');
+              }
+              if (data.installer) {
+                setLink('installer-btn', data.installer.url, 'Download ' + data.installer.fileName);
+                setText('setup-size', data.installer.sizeMb + ' MB');
+                if (data.installer.sha256) setText('setup-hash', 'SHA-256 ' + data.installer.sha256);
+              }
+              if (data.portable) {
+                setLink('portable-btn', data.portable.url, 'Download ' + data.portable.fileName);
+                setText('portable-size', data.portable.sizeMb + ' MB');
+                if (data.portable.sha256) setText('portable-hash', 'SHA-256 ' + data.portable.sha256);
+              }
+              return;
+            }
+          } catch {}
+        }
+
+        // Deployed on GitHub Pages: query latest GitHub Release assets automatically
+        try {
+          const res = await fetch('https://api.github.com/repos/' + REPO + '/releases/latest');
+          if (!res.ok) return;
+          const rel = await res.json();
+          if (rel.tag_name) {
+            setText('footer-ver', 'Fifilm ' + rel.tag_name.replace(/^v/i, ''));
+            setText('meta-line', rel.tag_name + ' / Windows 10 and 11 (64-bit) / FFmpeg, FFprobe, and libvidstab bundled');
+          }
+          const assets = Array.isArray(rel.assets) ? rel.assets : [];
+          const setup = assets.find((a) => /setup.*\.exe$/i.test(a.name));
+          const portable = assets.find((a) => /portable.*\.exe$/i.test(a.name));
+          if (setup) {
+            setLink('installer-btn', setup.browser_download_url, 'Download ' + setup.name);
+            setText('setup-size', (setup.size / (1024 * 1024)).toFixed(1) + ' MB');
+          }
+          if (portable) {
+            setLink('portable-btn', portable.browser_download_url, 'Download ' + portable.name);
+            setText('portable-size', (portable.size / (1024 * 1024)).toFixed(1) + ' MB');
+          }
+        } catch {}
+      })();
+    </script>
+  </body>
+</html>

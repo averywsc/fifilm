@@ -1,0 +1,99 @@
+{
+  "name": "fifilm",
+  "version": "0.1.0",
+  "description": "High-performance hardware-accelerated open-source non-linear video editor (video companion to Totone)",
+  "author": "Avery",
+  "private": true,
+  "type": "module",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:electron": "tsc --noEmit && vite build && npm run compile:electron",
+    "compile:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --external:electron --external:ffmpeg-static --external:ffprobe-static --outdir=dist-electron --out-extension:.js=.cjs",
+    "electron:dev": "npm run compile:electron && concurrently -k \"vite\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "electron:start": "npm run build:electron && electron .",
+    "icon:generate": "python scripts/generate_icon.py",
+    "dist:win": "npm run icon:generate && npm run build:electron && electron-builder --win",
+    "dist:win:portable": "npm run icon:generate && npm run build:electron && electron-builder --win portable",
+    "luts:generate": "python scripts/generate_luts.py",
+    "preview": "vite preview"
+  },
+  "build": {
+    "appId": "app.fifilm.nle",
+    "productName": "Fifilm",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "node_modules/ffmpeg-static/**/*",
+      "node_modules/ffprobe-static/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**/*",
+      "node_modules/ffprobe-static/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "workers",
+        "to": "workers",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "scripts/generate_luts.py",
+        "to": "scripts/generate_luts.py"
+      }
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Fifilm",
+      "artifactName": "Fifilm-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "Fifilm-${version}-Portable.exe"
+    }
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0",
+    "lucide-react": "^0.511.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^35.7.5",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.12",
+    "typescript": "^5.8.3",
+    "vite": "^6.4.6",
+    "wait-on": "^8.0.3"
+  }
+}

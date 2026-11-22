@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-electron/
+release/
+.fifilm-cache/
+*.trf
+*.log
+.DS_Store
+Thumbs.db
