@@ -29,19 +29,14 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Read release version and signing mode
+      - name: Read release version
         id: meta
         shell: pwsh
-        env:
-          AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
         run: |
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
           $tag = if ("${{ github.ref }}".StartsWith("refs/tags/")) { "${{ github.ref_name }}" } else { "v$($pkg.version)" }
-          $hasAzure = if ($env:AZURE_SIGNING_ENDPOINT -and $env:AZURE_CLIENT_ID) { "true" } else { "false" }
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "has_azure=$hasAzure" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Release tag: $tag | Azure Trusted Signing enabled: $hasAzure"
+          Write-Host "Release tag: $tag"
 
       - name: Build Windows Installer and Portable .exe
         shell: pwsh
@@ -60,22 +55,6 @@ jobs:
             $env:CSC_IDENTITY_AUTO_DISCOVERY = "false"
             npm run dist:win
           }
-
-      - name: Sign with Microsoft Azure Trusted Signing
-        if: steps.meta.outputs.has_azure == 'true'
-        uses: azure/trusted-signing-action@v0.5.7
-        with:
-          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
-          endpoint: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
-          trusted-signing-account-name: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
-          certificate-profile-name: ${{ secrets.AZURE_SIGNING_PROFILE }}
-          files-folder: release
-          files-folder-filter: exe
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
